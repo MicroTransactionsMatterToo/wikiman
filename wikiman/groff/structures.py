@@ -41,17 +41,6 @@ class GroffColumnSpecifiers(Flag):
         other_components = _decompose(self.__class__, other._value_)[0]
         self_primary = list(filter(lambda x: x in self._uncombinable, self_components))[:1][0]
         other_combinable = list(filter(lambda x: x not in self._uncombinable, other_components))
-        print(dedent("""\
-        First Argument: {}
-        Second Argument: {}
-        Self Primary: {}
-        Other Combinable: {}
-        """.format(
-            self_components,
-            other_components,
-            self_primary,
-            other_combinable
-        )))
         usable_output = self_primary
         for val in other_combinable:
             usable_output = Flag.__or__(usable_output, val)
