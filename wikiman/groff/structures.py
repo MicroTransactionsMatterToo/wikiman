@@ -9,7 +9,9 @@ from textwrap import dedent
 from itertools import chain
 
 
-# == Typing stuff == #
+
+
+
 class HeaderLevels(Enum):
     """
     Set of usable header types within Groff using MS macros
@@ -20,9 +22,11 @@ class HeaderLevels(Enum):
     HEADER_CUSTOM = '.SH {size}'
     NUMBERED_HEADER = '.NH {size} {section}'
 
+
 class GroffColumnSpecifiers(Flag):
     """
-    Flags for easy combinations of Unix tbl column specifiers
+    Flags for easy combinations of Unix tbl column specifiers. To combine flags, just OR them together. Flags that cannot be combined
+    will return the first viable combination of the components. See source for more details
     """
     RELATIVE_CENTER = auto()
     CENTER = auto()
@@ -32,9 +36,9 @@ class GroffColumnSpecifiers(Flag):
     VERTICAL_SPAN = auto()
     HORIZONTAL_SPAN = auto()
 
-    _uncombinable = (RELATIVE_CENTER|CENTER|LEFT_ALIGNED|RIGHT_ALIGNED)
+    _uncombinable = (RELATIVE_CENTER | CENTER | LEFT_ALIGNED | RIGHT_ALIGNED)
 
-    def __or__(self, other):
+    def __or__(self, other) -> Flag:
         if not isinstance(other, self.__class__):
             return NotImplemented
         self_components = _decompose(self.__class__, self._value_)[0]
@@ -61,17 +65,13 @@ class GroffColumnOptions(Flag):
     IGNORE_COLUMN = auto()
 
 
-
-
-
 class GroffTextEntity(metaclass=ABCMeta):
     """
     An abstract class representing any solid concept or entity present in Groff when used with the MS macro set
     """
 
-    @property
     @abstractmethod
-    def text(self) -> str:
+    def __str__(self) -> str:
         """
         Should return a fully usable version of the entity
 
@@ -81,54 +81,12 @@ class GroffTextEntity(metaclass=ABCMeta):
         pass
 
 
-class GroffTable(GroffTextEntity):
-    """
-
-    """
-    def __init__(self):
-        pass
+class GroffText(GroffTextEntity):
+    def __init__(self, text):
+        self.raw_text = text
 
     def __str__(self):
-        pass
-
-    def add_row(self, content: List[List]):
-        pass
-
-    def add_column(self, title: Union[str, None] = None, width: str = None):
-        pass
-
-    @property
-    def text(self) -> str:
-        pass
-
-class GroffTableRow(GroffTextEntity):
-    def __init__(self):
-        pass
-
-
-
-
-
-
-class GroffLinebreak:
-    def __init__(self):
-        pass
-
-    def __str__(self) -> str:
-        return ".br\n"
-
-    @property
-    def text(self) -> str:
-        return str(self)
-
-
-class GroffParagraph:
-    def __init__(self, content: Union[List[GroffTextEntity], str]):
-        pass
-
-    @property
-    def text(self) -> str:
-        pass
+        return self.raw_text
 
 
 class GroffColouredText(GroffTextEntity):
@@ -137,9 +95,131 @@ class GroffColouredText(GroffTextEntity):
         self.colour = colour
         self.raw_text = text
 
-    @property
-    def text(self) -> str:
+    def __str__(self) -> str:
         return "\m[{self.colour}]{self.raw_text}\m[]".format(self=self)
+
+
+_GroffTableContent = List[Union[List[Union[GroffText, GroffColouredText]],Union[GroffText, GroffColouredText]]]
+
+class GroffTableRow(GroffTextEntity):
+    def __init__(self, content: _GroffTableContent = None):
+        pass
+
+    def __getitem__(self):
+        pass
+
+    def __setitem__(self, key, value):
+        pass
+
+    def __delitem__(self, key):
+        pass
+
+
+class GroffColumnSection(GroffTextEntity):
+    """
+    Contains any number of :class:`GroffTableRow`'s along with column options
+    """
+
+    def __init__(self, options: object = None):
+        super().__init__()
+        if options is not None:
+            self.options = options
+        else:
+            self.options = {
+                "center": False,
+                "expand": False,
+                "box": False,
+                "allbox": False,
+                "doublebox": False,
+                "tab": "^",
+                "linesize": None,
+                "delim": None
+            }
+
+    def __str__(self):
+        pass
+
+    def __getitem__(self, item):
+        pass
+
+    def __setitem__(self, key, value):
+        pass
+
+    def __delitem__(self, key):
+        pass
+
+    def add_row(self):
+        pass
+
+    def remove_row(self):
+        pass
+
+    def add_column(self):
+        pass
+
+    def remove_column(self):
+        pass
+
+
+class GroffTable(GroffTextEntity):
+    """
+    A container that forms a complete Groff table.
+    The structure is such that rows are contained by their respective column configurations
+    """
+
+    def __str__(self):
+        pass
+
+    def __getitem__(self, item):
+        pass
+
+    def __setitem__(self, key, value):
+        pass
+
+    def __delitem__(self, key):
+        pass
+
+    def add_section(self, column: GroffColumnSection):
+        pass
+
+
+class GroffLinebreak(GroffTextEntity):
+    def __init__(self):
+        super().__init__()
+
+    def __str__(self) -> str:
+        return ".br\n"
+
+
+class GroffParagraph(GroffTextEntity):
+    """
+    A paragraph in Groff, consisting of any other Groff entities preceded by the macro :code:`.LP`. Content given can
+    either be a list of GroffTextEntities or a string. Objects that can be converted to strings can also be used, but
+    they may produce problematic results
+
+    Args:
+        content (:obj:`list` of :class:`GroffTextEntity` or :obj:`str`): Content of the paragraph
+    """
+    def __init__(self, content: Union[List[GroffTextEntity], str]):
+        super().__init__()
+        self.raw_content = content
+
+    def __str__(self) -> str:
+        if type(self.raw_content) is str:
+            return dedent("""\
+            .LP
+            {content}
+            """.format(content=self.raw_content))
+        elif type(self.raw_content) is list:
+            rval = ""
+            try:
+                for item in self.raw_content:
+                    rval += str(item)
+            except AttributeError as exc:
+                raise NotImplementedError(
+                    "Groff paragraph contained item without any string methods implemented"
+                ) from exc
+
 
 class GroffHeader(GroffTextEntity):
     """
@@ -160,7 +240,8 @@ class GroffHeader(GroffTextEntity):
         header_options (:obj:`dict`, optional): Additional options for
             :class:`HeaderLevels.HEADER_CUSTOM` and :class:`HeaderLevels.NUMBERED_HEADER`
     """
-    def __init__(self, header_text: str, header_level: HeaderLevels, header_options: Union[Dict, None] = None):
+
+    def __init__(self, header_text: str, header_level: HeaderLevels, header_options: Dict = None):
         super().__init__()
         if header_options is None:
             header_options = {}
@@ -173,11 +254,8 @@ class GroffHeader(GroffTextEntity):
         else:
             self._header_decl = header_level.value
 
-    @property
-    def text(self) -> str:
+    def __str__(self) -> str:
         return dedent("""\
         {header_line}
         {raw_text}
         """.format(header_line=self._header_decl, raw_text=self.raw_text))
-
-
